@@ -1,0 +1,1 @@
+insert into CURRENCY_EXCHANGE_RATE values(1,'74.67',null,'usd','inr');
