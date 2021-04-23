@@ -36,7 +36,7 @@ class CurrencyConversionControllerTest {
 		Mockito.when(proxy.getCurrencyRate(Mockito.anyString(),Mockito.anyString())).thenReturn(currencyConversion);
 		CurrencyConversion actual = underTest.getCurrencyRate("usd","inr",BigDecimal.valueOf(10));
 		
-		assertThat(currencyConversion).usingRecursiveComparison(actual);
+		assertThat(currencyConversion).usingRecursiveComparison().isEqualTo(actual);
 	}
 
 }

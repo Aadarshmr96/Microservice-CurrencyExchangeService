@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.RestController;
 import com.mircroservices.currencyconversionservice.CurrencyExchangeServiceProxy;
 import com.mircroservices.currencyconversionservice.model.CurrencyConversion;
 
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+
 @RestController
 public class CurrencyConversionController {
 
@@ -22,6 +24,7 @@ public class CurrencyConversionController {
 	private CurrencyExchangeServiceProxy proxy;	
 	
 	@GetMapping("/{from}/{to}/quantity/{amt}")
+	@CircuitBreaker(name="currency-exchange",fallbackMethod = "getCurrencyRateFallback")
 	public CurrencyConversion getCurrencyRate(@PathVariable String from ,@PathVariable String to ,@PathVariable BigDecimal amt) {
 		log.info("Called =================");
 		CurrencyConversion currencyRate = proxy.getCurrencyRate(from, to);
@@ -35,4 +38,26 @@ public class CurrencyConversionController {
 			throw new RuntimeException();
 	}
 	
+	
+	@GetMapping("feign/{from}/{to}/quantity/{amt}")
+	//@CircuitBreaker(name="currency-exchange",fallbackMethod = "getCurrencyRateFallback")
+	public CurrencyConversion getOnlineCurrencyRateThroughFeign(@PathVariable String from ,@PathVariable String to ,@PathVariable BigDecimal amt) {
+		log.info("Called =================");
+		CurrencyConversion currencyRate = proxy.getOnlineCurrencyRate(from, to);
+		log.info("currencyRate"+currencyRate);
+		if(null!=currencyRate) {
+			currencyRate.setQuantity(amt.toString()+" "+to.toUpperCase());
+			
+			return new CurrencyConversion(currencyRate.getId(),currencyRate.getFrom(),currencyRate.getTo(), currencyRate.getConversionValue(), 
+					amt, currencyRate.getQuantity(),amt.multiply(currencyRate.getConversionValue()),currencyRate.getEnvironment());
+		}else
+			throw new RuntimeException();
+	}
+	
+	public CurrencyConversion getCurrencyRateFallback(Exception e) {
+		
+		CurrencyConversion resp=new CurrencyConversion();
+		resp.setEnvironment("Fallback called for getCurrencyRateFallback");
+		return resp;
+	}
 }

@@ -13,7 +13,7 @@ public interface CurrencyExchangeServiceProxy {
 	@GetMapping("currency-exchange/fromDb/{from}/{to}")
 	public CurrencyConversion getCurrencyRate(@PathVariable String from ,@PathVariable String to);
 	
-	//@GetMapping("/")
-	//public CurrencyConversion getCurrencyRateFromDB(@PathVariable String from ,@PathVariable String to);
+	@GetMapping("currency-exchange/feign/{from}/{to}")
+	public CurrencyConversion getOnlineCurrencyRate(@PathVariable String from ,@PathVariable String to);
 		
 }

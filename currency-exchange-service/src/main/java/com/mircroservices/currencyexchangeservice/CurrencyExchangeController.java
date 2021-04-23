@@ -2,6 +2,8 @@ package com.mircroservices.currencyexchangeservice;
 
 import java.math.BigDecimal;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
@@ -12,9 +14,14 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
-import com.mircroservices.currencyexchangeservice.repo.*;
+
 import com.mircroservices.currencyexchangeservice.model.CurrencyExchangeRate;
 import com.mircroservices.currencyexchangeservice.model.OnlineCurrencyExchange;
+import com.mircroservices.currencyexchangeservice.repo.CurrencyExchangeRateRepo;
+
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.ratelimiter.annotation.RateLimiter;
+import io.github.resilience4j.retry.annotation.Retry;
 
 @RestController
 public class CurrencyExchangeController {
@@ -23,6 +30,7 @@ public class CurrencyExchangeController {
 	 * @Value("${currency-exchange.online-service-url}") String url;
 	 */
 	
+	private Logger log=LoggerFactory.getLogger(CurrencyExchangeController.class);
 	@Autowired
 	private OnlineCurrencyExchangeProxy onlineCurrencyExchangeProxy; 
 	
@@ -40,8 +48,21 @@ public class CurrencyExchangeController {
 		this.env=env;
 	}
 	
+	@GetMapping("/sample")
+//	@Retry(name = "sample-api" ,fallbackMethod = "fallBackResponse")
+	@RateLimiter(name = "samplelimit")
+	public String sampleApi() {
+		
+		log.info("sample api ++");
+		//new RestTemplate().getForObject("gtt;", String.class);
+		
+		return "success";
+	}
 	
 	@GetMapping("/{from}/{to}")
+	@Retry(name="get-currency-rate",fallbackMethod = "getCurrencyRateFallback")
+	@CircuitBreaker(name="get-currency-rate",fallbackMethod = "getCurrencyRateFallback")
+	@RateLimiter(name = "get-currency-rate")
 	public CurrencyExchangeRate getCurrencyRate(@PathVariable String from ,@PathVariable String to){
 		
 		String url=null;
@@ -64,8 +85,12 @@ public class CurrencyExchangeController {
 	}
 	
 	@GetMapping("feign/{from}/{to}")
+	@Retry(name="get-currency-rate",fallbackMethod = "getCurrencyRateFallback")
+	@CircuitBreaker(name="get-currency-rate",fallbackMethod = "getCurrencyRateFallback")
+	@RateLimiter(name = "get-currency-rate")
 	public CurrencyExchangeRate getCurrencyRateThroughFeign(@PathVariable String from ,@PathVariable String to){
 		
+		log.info("getCurrencyRateThroughFeign++");
 		OnlineCurrencyExchange currencyExchange = onlineCurrencyExchangeProxy.getCurrencyRate();
 		BigDecimal valueBigDecimal=null;
 		switch(to.toLowerCase()) {
@@ -105,5 +130,25 @@ public class CurrencyExchangeController {
 			throw new RuntimeException();
 		}
 		
+	}
+	
+	public String fallBackResponse(Throwable e) {
+		
+		return "fallBackResponse for sample-api";
+	}
+	
+	
+	
+	//fallback responses
+	
+	public CurrencyExchangeRate getCurrencyRateFallback(Exception e) {
+		
+		CurrencyExchangeRate resp=new CurrencyExchangeRate();
+		resp.setFrom("NA");
+		resp.setTo("NA");
+		resp.setConversionValue(BigDecimal.valueOf(0));
+		resp.setId(0);
+		resp.setEnvironment("Fallback response for getCurrencyRate");
+		return resp;
 	}
 }
